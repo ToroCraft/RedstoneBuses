@@ -19,6 +19,9 @@ import net.minecraft.block.properties.PropertyInteger;
 import net.minecraft.block.state.BlockFaceShape;
 import net.minecraft.block.state.BlockStateContainer;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.block.model.ModelBakery;
+import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
@@ -29,59 +32,57 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.IStringSerializable;
 import net.minecraft.util.Mirror;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Rotation;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
+import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
+import net.torocraft.redstonebuses.RedstoneBuses;
+import net.torocraft.redstonebuses.items.ItemBlockMeta;
 
 @Mod.EventBusSubscriber
 public class BlockRedstoneBus extends BlockContainer {
 
-//  protected static final AxisAlignedBB AABB = new AxisAlignedBB(0.0D, 0.0D, 0.0D, 1.0D, 0.1875D, 1.0D);
-//
-//  public static final PropertyBool ACTIVE = PropertyBool.create("active");
-//  public static final PropertyBool OVERCLOCKED = PropertyBool.create("overclocked");
-//
-//  public static final String NAME = "minecoprocessor";
-//
-//  private static ResourceLocation REGISTRY_NAME = new ResourceLocation(RedstoneBuses.MODID, NAME);
-//  private static ResourceLocation REGISTRY_OVERCLOCKED_NAME = new ResourceLocation(RedstoneBuses.MODID, NAME + "_overclocked");
+  public static final String NAME = "redstonebus";
 
-//  public static BlockRedstoneBus INSTANCE = (BlockRedstoneBus) new BlockRedstoneBus()
-//      .setUnlocalizedName(NAME)
-//      .setRegistryName(REGISTRY_NAME);
-//
-//  public static ItemBlockMeta ITEM_INSTANCE = (ItemBlockMeta) new ItemBlockMeta(INSTANCE).
-//      setRegistryName(REGISTRY_NAME);
-//
-//  @SubscribeEvent
-//  public static void initBlock(final RegistryEvent.Register<Block> event) {
-//    event.getRegistry().register(INSTANCE);
-//  }
-//
-//  @SubscribeEvent
-//  public static void initItem(final RegistryEvent.Register<Item> event) {
-//    event.getRegistry().register(ITEM_INSTANCE);
-//  }
-//
-//  public static void preRegisterRenders() {
-//    ModelBakery.registerItemVariants(ITEM_INSTANCE, REGISTRY_NAME, REGISTRY_OVERCLOCKED_NAME);
-//  }
-//
-//  public static void registerRenders() {
-//    registerRender(REGISTRY_NAME.toString(), 0);
-//    registerRender(REGISTRY_OVERCLOCKED_NAME.toString(), 4);
-//  }
-//
-//  private static void registerRender(String file, int meta) {
-//    ModelResourceLocation model = new ModelResourceLocation(file, "inventory");
-//    Minecraft.getMinecraft().getRenderItem().getItemModelMesher().register(ITEM_INSTANCE, meta, model);
-//  }
+  private static ResourceLocation REGISTRY_NAME = new ResourceLocation(RedstoneBuses.MODID, NAME);
+
+  public static BlockRedstoneBus INSTANCE = (BlockRedstoneBus) new BlockRedstoneBus()
+      .setUnlocalizedName(NAME)
+      .setRegistryName(REGISTRY_NAME);
+
+  public static ItemBlockMeta ITEM_INSTANCE = (ItemBlockMeta) new ItemBlockMeta(INSTANCE).
+      setRegistryName(REGISTRY_NAME);
+
+  @SubscribeEvent
+  public static void initBlock(final RegistryEvent.Register<Block> event) {
+    event.getRegistry().register(INSTANCE);
+  }
+
+  @SubscribeEvent
+  public static void initItem(final RegistryEvent.Register<Item> event) {
+    event.getRegistry().register(ITEM_INSTANCE);
+  }
+
+  public static void preRegisterRenders() {
+    ModelBakery.registerItemVariants(ITEM_INSTANCE, REGISTRY_NAME);
+  }
+
+  public static void registerRenders() {
+    registerRender(REGISTRY_NAME.toString(), 0);
+  }
+
+  private static void registerRender(String file, int meta) {
+    ModelResourceLocation model = new ModelResourceLocation(file, "inventory");
+    Minecraft.getMinecraft().getRenderItem().getItemModelMesher().register(ITEM_INSTANCE, meta, model);
+  }
 
 
   public static final PropertyEnum<BlockRedstoneBus.EnumAttachPosition> NORTH =
@@ -124,9 +125,13 @@ public class BlockRedstoneBus extends BlockContainer {
 
   public BlockRedstoneBus() {
     super(Material.CIRCUITS);
-    this.setDefaultState(this.blockState.getBaseState().withProperty(NORTH, BlockRedstoneBus.EnumAttachPosition.NONE)
-        .withProperty(EAST, BlockRedstoneBus.EnumAttachPosition.NONE).withProperty(SOUTH, BlockRedstoneBus.EnumAttachPosition.NONE)
-        .withProperty(WEST, BlockRedstoneBus.EnumAttachPosition.NONE).withProperty(POWER, Integer.valueOf(0)));
+    this.setDefaultState(this.blockState.getBaseState()
+        .withProperty(NORTH, BlockRedstoneBus.EnumAttachPosition.NONE)
+        .withProperty(EAST, BlockRedstoneBus.EnumAttachPosition.NONE)
+        .withProperty(SOUTH, BlockRedstoneBus.EnumAttachPosition.NONE)
+        .withProperty(WEST, BlockRedstoneBus.EnumAttachPosition.NONE)
+        .withProperty(POWER, 0)
+    );
   }
 
   public AxisAlignedBB getBoundingBox(IBlockState state, IBlockAccess source, BlockPos pos) {
@@ -229,65 +234,59 @@ public class BlockRedstoneBus extends BlockContainer {
     return state;
   }
 
-  private IBlockState calculateCurrentChanges(World worldIn, BlockPos pos1, BlockPos pos2, IBlockState state) {
-    IBlockState iblockstate = state;
-    int i = ((Integer) state.getValue(POWER)).intValue();
-    int j = 0;
-    j = this.getMaxCurrentStrength(worldIn, pos2, j);
-    this.canProvidePower = false;
-    int k = worldIn.isBlockIndirectlyGettingPowered(pos1);
-    this.canProvidePower = true;
+  private IBlockState calculateCurrentChanges(World worldIn, BlockPos thisBlock, BlockPos indirectBlock, IBlockState state) {
 
-    if (k > 0 && k > j - 1) {
-      j = k;
-    }
+    int busPower = state.getValue(POWER);
+    int maxCurrent = 0;
+    maxCurrent = this.getMaxCurrentStrength(worldIn, indirectBlock, maxCurrent);
 
     int l = 0;
 
-    for (EnumFacing enumfacing : EnumFacing.Plane.HORIZONTAL) {
-      BlockPos blockpos = pos1.offset(enumfacing);
-      boolean flag = blockpos.getX() != pos2.getX() || blockpos.getZ() != pos2.getZ();
+    l = getPowerOfAdjacentBlocks(worldIn, thisBlock, indirectBlock, l);
 
-      if (flag) {
-        l = this.getMaxCurrentStrength(worldIn, blockpos, l);
-      }
-
-      if (worldIn.getBlockState(blockpos).isNormalCube() && !worldIn.getBlockState(pos1.up()).isNormalCube()) {
-        if (flag && pos1.getY() >= pos2.getY()) {
-          l = this.getMaxCurrentStrength(worldIn, blockpos.up(), l);
-        }
-      } else if (!worldIn.getBlockState(blockpos).isNormalCube() && flag && pos1.getY() <= pos2.getY()) {
-        l = this.getMaxCurrentStrength(worldIn, blockpos.down(), l);
-      }
-    }
-
-    if (l > j) {
-      j = l - 1;
-    } else if (j > 0) {
-      --j;
+    if (l > maxCurrent) {
+      maxCurrent = l - 1;
+    } else if (maxCurrent > 0) {
+      --maxCurrent;
     } else {
-      j = 0;
+      maxCurrent = 0;
     }
 
-    if (k > j - 1) {
-      j = k;
-    }
+    if (busPower != maxCurrent) {
+      state = state.withProperty(POWER, Integer.valueOf(maxCurrent));
 
-    if (i != j) {
-      state = state.withProperty(POWER, Integer.valueOf(j));
-
-      if (worldIn.getBlockState(pos1) == iblockstate) {
-        worldIn.setBlockState(pos1, state, 2);
+      if (worldIn.getBlockState(thisBlock) == state) {
+        worldIn.setBlockState(thisBlock, state, 2);
       }
 
-      this.blocksNeedingUpdate.add(pos1);
+      this.blocksNeedingUpdate.add(thisBlock);
 
       for (EnumFacing enumfacing1 : EnumFacing.values()) {
-        this.blocksNeedingUpdate.add(pos1.offset(enumfacing1));
+        this.blocksNeedingUpdate.add(thisBlock.offset(enumfacing1));
       }
     }
 
     return state;
+  }
+
+  private int getPowerOfAdjacentBlocks(World worldIn, BlockPos thisBlock, BlockPos indirectBlock, int l) {
+    for (EnumFacing enumfacing : EnumFacing.Plane.HORIZONTAL) {
+      BlockPos adjacentBlockPos = thisBlock.offset(enumfacing);
+      boolean flag = adjacentBlockPos.getX() != indirectBlock.getX() || adjacentBlockPos.getZ() != indirectBlock.getZ();
+
+      if (flag) {
+        l = this.getMaxCurrentStrength(worldIn, adjacentBlockPos, l);
+      }
+
+      if (worldIn.getBlockState(adjacentBlockPos).isNormalCube() && !worldIn.getBlockState(thisBlock.up()).isNormalCube()) {
+        if (flag && thisBlock.getY() >= indirectBlock.getY()) {
+          l = this.getMaxCurrentStrength(worldIn, adjacentBlockPos.up(), l);
+        }
+      } else if (!worldIn.getBlockState(adjacentBlockPos).isNormalCube() && flag && thisBlock.getY() <= indirectBlock.getY()) {
+        l = this.getMaxCurrentStrength(worldIn, adjacentBlockPos.down(), l);
+      }
+    }
+    return l;
   }
 
   /**
@@ -363,7 +362,7 @@ public class BlockRedstoneBus extends BlockContainer {
     if (worldIn.getBlockState(pos).getBlock() != this) {
       return strength;
     } else {
-      int i = ((Integer) worldIn.getBlockState(pos).getValue(POWER)).intValue();
+      int i = worldIn.getBlockState(pos).getValue(POWER);
       return i > strength ? i : strength;
     }
   }
